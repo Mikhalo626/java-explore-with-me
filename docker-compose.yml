@@ -1,4 +1,3 @@
-
 services:
   stats-server:
     build:

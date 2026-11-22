@@ -7,15 +7,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.EndpointHit;
 import ru.practicum.ViewStats;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 
 @Component
 @RequiredArgsConstructor
@@ -23,7 +21,8 @@ public class StatsClientImpl implements StatsClient {
 
     private final RestTemplate restTemplate;
 
-    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public void hit(EndpointHit hit) {
@@ -31,24 +30,25 @@ public class StatsClientImpl implements StatsClient {
     }
 
     @Override
-    public List<ViewStats> getStats(LocalDateTime start, LocalDateTime end, List<String> uris, boolean unique) {
+    public List<ViewStats> getStats(LocalDateTime start, LocalDateTime end,
+                                    List<String> uris, boolean unique) {
         String startStr = start.format(FORMATTER);
         String endStr = end.format(FORMATTER);
 
-        Map<String, Object> params = new HashMap<>();
-        params.put("start", startStr);
-        params.put("end", endStr);
-        params.put("unique", unique);
+        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/stats")
+                .queryParam("start", startStr)
+                .queryParam("end", endStr)
+                .queryParam("unique", unique);
+
         if (uris != null && !uris.isEmpty()) {
-            params.put("uris", String.join(",", uris));
+            builder.queryParam("uris", uris);
         }
 
         ResponseEntity<List<ViewStats>> response = restTemplate.exchange(
-                "/stats?start={start}&end={end}&unique={unique}&uris={uris}",
+                builder.toUriString(),
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
-                new ParameterizedTypeReference<>() {},
-                params
+                new ParameterizedTypeReference<>() {}
         );
 
         return response.getBody();
