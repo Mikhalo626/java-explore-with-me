@@ -1,6 +1,8 @@
+
 package ru.practicum.client;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -11,6 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import ru.practicum.EndpointHit;
 import ru.practicum.ViewStats;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -21,34 +24,53 @@ public class StatsClientImpl implements StatsClient {
 
     private final RestTemplate restTemplate;
 
+    @Value("${stats-server.url}")
+    private String statsServerUrl;
+
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Override
     public void hit(EndpointHit hit) {
-        restTemplate.postForEntity("/hit", hit, Void.class);
+        URI uri = UriComponentsBuilder
+                .fromUriString(statsServerUrl)
+                .path("/hit")
+                .build()
+                .toUri();
+
+        restTemplate.postForEntity(uri, hit, Void.class);
     }
 
     @Override
-    public List<ViewStats> getStats(LocalDateTime start, LocalDateTime end,
-                                    List<String> uris, boolean unique) {
-        String startStr = start.format(FORMATTER);
-        String endStr = end.format(FORMATTER);
+    public List<ViewStats> getStats(LocalDateTime start,
+                                    LocalDateTime end,
+                                    List<String> uris,
+                                    boolean unique) {
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromPath("/stats")
-                .queryParam("start", startStr)
-                .queryParam("end", endStr)
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString(statsServerUrl)
+                .path("/stats")
+                .queryParam("start", start.format(FORMATTER))
+                .queryParam("end", end.format(FORMATTER))
                 .queryParam("unique", unique);
 
         if (uris != null && !uris.isEmpty()) {
-            builder.queryParam("uris", uris);
+            for (String uri : uris) {
+                builder.queryParam("uris", uri);
+            }
         }
 
+        URI requestUri = builder
+                .encode()
+                .build()
+                .toUri();
+
         ResponseEntity<List<ViewStats>> response = restTemplate.exchange(
-                builder.toUriString(),
+                requestUri,
                 HttpMethod.GET,
                 HttpEntity.EMPTY,
-                new ParameterizedTypeReference<>() {}
+                new ParameterizedTypeReference<>() {
+                }
         );
 
         return response.getBody();
